@@ -95,8 +95,25 @@ describe('showBookDtls', () => {
         // Act
         await showBookDtls(res as Response, '12345');
 
-        // Assert
+        // Asserts
         expect(res.status).toHaveBeenCalledWith(500);
         expect(res.send).toHaveBeenCalledWith('Error fetching book 12345');
+    });
+
+    // test object other than string, typecast
+    it('should return null if getBook is given something other than a string', async () => {
+        let id;
+        // Mocking the Book model's findOne method to throw an error
+        BookInstance.find = jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnThis(), // Select is called here
+            exec: jest.fn().mockResolvedValue(null)
+        });
+
+        // Act
+        await showBookDtls(res as Response, id as unknown as string);
+
+        // Assert
+        expect(res.status).toHaveBeenCalledWith(404);
+        expect(res.send).toHaveBeenCalledWith(`Book undefined not found`);
     });
 });

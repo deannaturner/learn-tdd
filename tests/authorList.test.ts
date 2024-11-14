@@ -1,7 +1,17 @@
+import { Response } from 'express';
 import Author from '../models/author'; // Adjust the import to your Author model path
-import { getAuthorList } from '../pages/authors'; // Adjust the import to your function
+import { getAuthorList, showAllAuthors } from '../pages/authors'; // Adjust the import to your function
 
 describe('getAuthorList', () => {
+    let res: Partial<Response>;
+
+    beforeEach(() => {
+        res = {
+            status: jest.fn().mockReturnThis(), // Chaining for status
+            send: jest.fn()
+        };
+    });
+
     afterEach(() => {
         jest.resetAllMocks();
     });
@@ -111,5 +121,78 @@ describe('getAuthorList', () => {
 
         // Assert: Verify the result is an empty array
         expect(result).toEqual([]);
+    });
+
+    it('should return an error if getAuthor returns no data', async () => {
+        // Arrange: Mock the Author.find() method to throw an error
+        Author.find = jest.fn().mockImplementation(() => {
+            throw new Error('Database error');
+        });
+
+        // Act: Call the function to get the authors list
+        await showAllAuthors(res as Response);
+
+        expect(res.send).toHaveBeenCalledWith('No authors found');
+    });
+
+    it('should return all authors', async () => {
+        // Define the sorted authors list as we expect it to be returned by the database
+        const sortedAuthors = [
+            {
+                first_name: '',
+                family_name: 'Austen',
+                date_of_birth: new Date('1775-12-16'),
+                date_of_death: new Date('1817-07-18')
+            },
+            {
+                first_name: 'Amitav',
+                family_name: 'Ghosh',
+                date_of_birth: new Date('1835-11-30'),
+                date_of_death: new Date('1910-04-21')
+            },
+            {
+                first_name: 'Rabindranath',
+                family_name: 'Tagore',
+                date_of_birth: new Date('1812-02-07'),
+                date_of_death: new Date('1870-06-09')
+            }
+        ];
+        
+        // Mock the find method to chain with sort
+        const mockFind = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(sortedAuthors)
+        });
+        // Arrange: Mock the Author.find() method to throw an error
+        Author.find = mockFind;
+
+        // Act: Call the function to get the authors list
+        await showAllAuthors(res as Response);
+
+        // Assert: Check if the result matches the expected sorted output
+        const expectedAuthors = [
+            ' : 1775 - 1817',
+            'Ghosh, Amitav : 1835 - 1910',
+            'Tagore, Rabindranath : 1812 - 1870'
+        ];
+        const result = Array.prototype.concat(sortedAuthors, expectedAuthors);
+
+        expect(res.send).toHaveBeenCalledWith(result);
+    });
+
+    it('should return an error if getAuthor throws an error inside showAllAuthors', async () => {
+        expect(res.send).toHaveBeenCalledWith('No authors found');
+
+        // Arrange: Mock the Author.find() method to throw an error
+        const mockGetAuthorList = jest.fn().mockImplementation(() => {
+            throw new Error('Database error');
+        });
+        
+        // Act: Call the function to get the authors list
+        const result = mockGetAuthorList;
+        await showAllAuthors(res as Response);
+        
+        // Assert: Verify the result is an empty array
+        expect(result).toEqual(new Error('Error fetching authors'));
+        expect(res.send).toHaveBeenCalledWith('No authors found');
     });
 });
